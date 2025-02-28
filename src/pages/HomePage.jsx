@@ -66,7 +66,7 @@ export default function HomePage() {
   const [articles, setArticles] = useState(MOCK_ARTICLES)
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-gray-50">
       {/* Hero Section */}
       <div className="bg-gradient-to-r from-orange-600 to-purple-600 text-white">
         <div className="max-w-7xl mx-auto py-24 px-4 sm:px-6 lg:px-8">

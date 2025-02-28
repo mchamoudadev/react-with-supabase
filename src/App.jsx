@@ -10,16 +10,16 @@ import SignInPage from './pages/SignInPage'
 import SignUpPage from './pages/SignUpPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import ProfilePage from './pages/ProfilePage'
 import ProtectedRoute from './components/ProtectedRoute'
 import UnauthenticatedRoute from './components/UnauthenticatedRoute'
 
 function App() {
   return (
-
       <AuthProvider>
-        <div className="flex flex-col min-h-screen">
+        <div className="flex flex-col min-h-screen w-full">
           <Header />
-          <main className="flex-grow">
+          <main className="flex-grow w-full">
             <Routes>
               {/* Public routes */}
               <Route path="/" element={<HomePage />} />
@@ -59,12 +59,16 @@ function App() {
                   <ArticleEditorPage />
                 </ProtectedRoute>
               } />
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              } />
             </Routes>
           </main>
           <Footer />
         </div>
       </AuthProvider>
-
   )
 }
 

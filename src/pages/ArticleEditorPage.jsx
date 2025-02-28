@@ -1,8 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router'
-import ReactQuill from 'react-quill'
-import 'react-quill/dist/quill.snow.css'
 import { FiSave, FiX, FiTag } from 'react-icons/fi'
+import QuillEditor from '../components/QuillEditor'
+
+// Convert HTML content to Quill Delta format - simplified version
+const prepareContentForQuill = (html) => {
+  if (!html) return '';
+  return html;
+};
 
 // Dummy data for editing - In a real app, fetch from Supabase
 const DUMMY_ARTICLE = {
@@ -26,20 +31,43 @@ export default function ArticleEditorPage() {
   
   // State for article data
   const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
+  const [content, setContent] = useState('') // Always initialize as an empty string
   const [selectedTags, setSelectedTags] = useState([])
   const [isSaving, setIsSaving] = useState(false)
   const [isTagsMenuOpen, setIsTagsMenuOpen] = useState(false)
+  
+  const editorRef = useRef(null);
   
   // Load article data if in edit mode
   useEffect(() => {
     if (isEditMode) {
       // In a real app, fetch data from Supabase
-      setTitle(DUMMY_ARTICLE.title)
-      setContent(DUMMY_ARTICLE.content)
-      setSelectedTags(DUMMY_ARTICLE.tags)
+      try {
+        setTitle(DUMMY_ARTICLE.title || '')
+        
+        // Convert HTML content to format suitable for Quill
+        const articleContent = DUMMY_ARTICLE.content || '';
+        const quillContent = prepareContentForQuill(articleContent);
+        setContent(quillContent);
+        
+        setSelectedTags(DUMMY_ARTICLE.tags || [])
+      } catch (error) {
+        console.error('Error loading article data:', error);
+      }
     }
   }, [isEditMode])
+  
+  // Function to focus the editor
+  const focusEditor = () => {
+    if (editorRef.current) {
+      editorRef.current.focus();
+    }
+  };
+  
+  // Handle content change from the editor
+  const handleContentChange = (value) => {
+    setContent(value);
+  }
   
   const handleSave = async () => {
     // Validate inputs
@@ -48,7 +76,7 @@ export default function ArticleEditorPage() {
       return
     }
     
-    if (!content.trim() || content === '<p><br></p>') {
+    if (!content.trim()) {
       alert('Please add some content to your article')
       return
     }
@@ -89,19 +117,8 @@ export default function ArticleEditorPage() {
     )
   }
   
-  // Quill editor modules configuration
-  const modules = {
-    toolbar: [
-      [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-      ['bold', 'italic', 'underline', 'strike', 'blockquote'],
-      [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-      ['link', 'image', 'code-block'],
-      ['clean']
-    ]
-  }
-  
   return (
-    <div className="min-h-screen bg-gray-50 py-10">
+    <div className="bg-gray-50 py-10">
       <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
         <div className="px-6 py-6 md:px-10 border-b border-gray-200">
           <div className="flex justify-between items-center mb-6">
@@ -208,14 +225,20 @@ export default function ArticleEditorPage() {
         
         {/* Rich Text Editor */}
         <div className="border-b border-gray-200">
-          <ReactQuill
-            theme="snow"
-            value={content}
-            onChange={setContent}
-            modules={modules}
-            placeholder="Write your article content here..."
-            className="h-96"
-          />
+          <div className="flex justify-between items-center px-4 py-2 bg-gray-50 border-b border-gray-200">
+            <h2 className="text-sm font-medium text-gray-700">Article Content</h2>
+          </div>
+          
+          <div onClick={focusEditor} className="cursor-text">
+            <QuillEditor
+              ref={editorRef}
+              value={content}
+              onChange={handleContentChange}
+              placeholder="Write your article content..."
+              className="min-h-[400px]"
+              height={400}
+            />
+          </div>
         </div>
         
         {/* Footer with Save Button */}

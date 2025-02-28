@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams } from 'react-router'
 import { FiHeart, FiMessageSquare, FiShare2, FiBookmark, FiUser, FiCalendar } from 'react-icons/fi'
+import supabase from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
+import { toast } from 'react-hot-toast'
+import CommentSection from '../components/CommentSection'
+import useBookmarks from '../hooks/useBookmarks'
 
 // Sample article data - would be fetched from Supabase in a real app
 const ARTICLE = {
@@ -120,54 +125,146 @@ const COMMENTS = [
 
 export default function ArticlePage() {
   const { id } = useParams()
-  const [article, setArticle] = useState(ARTICLE)
-  const [comments, setComments] = useState(COMMENTS)
+  const { user } = useAuth()
+  const { isBookmarked, toggleBookmark } = useBookmarks()
+  const [article, setArticle] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [isLiked, setIsLiked] = useState(false)
-  const [isBookmarked, setIsBookmarked] = useState(false)
-  const [commentText, setCommentText] = useState('')
   
-  // In a real app, we would fetch the article data based on the id parameter
+  useEffect(() => {
+    fetchArticle()
+    if (user) {
+      checkUserInteractions()
+    }
+  }, [id, user])
   
-  const handleLike = () => {
-    setIsLiked(!isLiked)
-    // In a real app, we would update the likes count in the database
+  const fetchArticle = async () => {
+    try {
+      setLoading(true)
+      
+      if (!id) return
+      
+      const { data, error } = await supabase
+        .from('articles')
+        .select(`
+          *,
+          author:author_id (
+            id,
+            username,
+            avatar_url
+          )
+        `)
+        .eq('id', id)
+        .single()
+        
+      if (error) throw error
+      
+      if (data) {
+        setArticle(data)
+      }
+    } catch (error) {
+      console.error('Error fetching article:', error.message)
+      toast.error('Failed to load article')
+    } finally {
+      setLoading(false)
+    }
   }
   
-  const handleBookmark = () => {
-    setIsBookmarked(!isBookmarked)
-    // In a real app, we would save the bookmark in the database
-  }
-  
-  const handleSubmitComment = (e) => {
-    e.preventDefault()
-    if (!commentText.trim()) return
+  const checkUserInteractions = async () => {
+    if (!user || !id) return
     
-    // In a real app, we would save the comment to the database
-    const newComment = {
-      id: `c${comments.length + 1}`,
-      author: {
-        username: 'Current User',
-        avatarUrl: 'https://i.pravatar.cc/150?img=5'
-      },
-      content: commentText,
-      createdAt: new Date().toISOString(),
-      likesCount: 0
+    try {
+      // Check if user liked this article
+      const { data: likeData } = await supabase
+        .from('likes')
+        .select('id')
+        .eq('article_id', id)
+        .eq('user_id', user.id)
+        .single()
+        
+      setIsLiked(!!likeData)
+      
+      // TODO: Add bookmark check when bookmark functionality is implemented
+    } catch (error) {
+      console.error('Error checking interactions:', error.message)
+    }
+  }
+
+  const handleLike = async () => {
+    if (!user) {
+      toast.error('Please sign in to like articles')
+      return
     }
     
-    setComments([newComment, ...comments])
-    setCommentText('')
+    try {
+      if (isLiked) {
+        // Unlike the article
+        const { error } = await supabase
+          .from('likes')
+          .delete()
+          .eq('article_id', id)
+          .eq('user_id', user.id)
+          
+        if (error) throw error
+        
+        setIsLiked(false)
+        toast.success('Article unliked')
+      } else {
+        // Like the article
+        const { error } = await supabase
+          .from('likes')
+          .insert({
+            article_id: id,
+            user_id: user.id
+          })
+          
+        if (error) throw error
+        
+        setIsLiked(true)
+        toast.success('Article liked')
+      }
+      
+      // Refresh the article to get updated like count
+      fetchArticle()
+    } catch (error) {
+      console.error('Error liking/unliking article:', error.message)
+      toast.error('Failed to update like status')
+    }
+  }
+  
+  const handleBookmark = async () => {
+    // Use the toggleBookmark function from useBookmarks
+    await toggleBookmark(id)
+    // No need for toast message as it's handled inside the hook
   }
   
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
+    const options = { year: 'numeric', month: 'long', day: 'numeric' }
+    return new Date(dateString).toLocaleDateString(undefined, options)
   }
   
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    )
+  }
+  
+  if (!article) {
+    return (
+      <div className="text-center py-20">
+        <h2 className="text-2xl font-bold text-gray-800">Article not found</h2>
+        <p className="mt-2 text-gray-600">The article you're looking for doesn't exist or has been removed.</p>
+        <Link to="/articles" className="mt-4 inline-block text-blue-600 hover:underline">
+          Browse all articles
+        </Link>
+      </div>
+    )
+  }
+
   return (
-    <div className="bg-gray-50 min-h-screen py-10">
+    <div className="bg-gray-50 py-10">
       <article className="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
         {/* Article Header */}
         <div className="px-6 py-8 md:px-10">
@@ -245,60 +342,7 @@ export default function ArticlePage() {
       {/* Comments Section */}
       <div className="max-w-4xl mx-auto mt-10 bg-white rounded-xl shadow-md overflow-hidden">
         <div className="px-6 py-6 md:px-10">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">
-            Comments ({comments.length})
-          </h2>
-          
-          {/* Comment Form */}
-          <form onSubmit={handleSubmitComment} className="mb-8">
-            <div className="mb-4">
-              <textarea
-                placeholder="Add a comment..."
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                rows="3"
-              ></textarea>
-            </div>
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-              >
-                Post Comment
-              </button>
-            </div>
-          </form>
-          
-          {/* Comments List */}
-          <div className="space-y-6">
-            {comments.map((comment) => (
-              <div key={comment.id} className="flex space-x-4 border-b border-gray-100 pb-6">
-                <img
-                  src={comment.author.avatarUrl}
-                  alt={comment.author.username}
-                  className="h-10 w-10 rounded-full"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
-                    <Link to={`/profile/${comment.author.username}`} className="font-medium text-gray-900 hover:text-orange-600">
-                      {comment.author.username}
-                    </Link>
-                    <span className="text-sm text-gray-500">
-                      {formatDate(comment.createdAt)}
-                    </span>
-                  </div>
-                  <p className="text-gray-700">{comment.content}</p>
-                  <div className="mt-2 flex items-center text-sm text-gray-500">
-                    <button className="flex items-center hover:text-orange-600">
-                      <FiHeart className="h-4 w-4 mr-1" />
-                      <span>{comment.likesCount}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <CommentSection articleId={id} />
         </div>
       </div>
     </div>

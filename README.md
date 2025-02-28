@@ -87,3 +87,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ---
 
 Made with ❤️ using React, Vite, and Supabase# react-with-supabase
+
+npm install react-simplemde-editor easymde react-markdown

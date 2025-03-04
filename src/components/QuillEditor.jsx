@@ -1,9 +1,12 @@
-import { useImperativeHandle, useCallback, useState, useEffect } from 'react';
+import { useImperativeHandle, useCallback, useState, useEffect, useRef, forwardRef } from 'react';
 import ReactQuill from 'react-quill-new';
 import './quill.snow.css';
 
-// Remove forwardRef and accept ref as a regular prop
-const QuillEditor = ({ value, onChange, placeholder, className, height = 400, ref }) => {
+// Use forwardRef to properly handle the ref
+const QuillEditor = forwardRef(({ value, onChange, placeholder, className, height = 400 }, ref) => {
+  // Create a separate ref for the ReactQuill component
+  const quillRef = useRef(null);
+  
   // Local state to track editor value
   const [editorValue, setEditorValue] = useState(value || '');
   
@@ -41,18 +44,18 @@ const QuillEditor = ({ value, onChange, placeholder, className, height = 400, re
   // Expose methods to parent component
   useImperativeHandle(ref, () => ({
     // Get the editor instance
-    getEditor: () => ref.current?.editor,
+    getEditor: () => quillRef.current?.editor,
     
     // Set focus
     focus: () => {
-      if (ref.current) {
-        ref.current.focus();
+      if (quillRef.current) {
+        quillRef.current.focus();
       }
     },
     
     // Insert text at current cursor position
     insertText: (text) => {
-      const editor = ref.current?.editor;
+      const editor = quillRef.current?.editor;
       if (editor) {
         const range = editor.getSelection();
         if (range) {
@@ -63,7 +66,7 @@ const QuillEditor = ({ value, onChange, placeholder, className, height = 400, re
     
     // Insert link
     insertLink: (text, url) => {
-      const editor = ref.current?.editor;
+      const editor = quillRef.current?.editor;
       if (editor) {
         const range = editor.getSelection();
         if (range) {
@@ -76,7 +79,7 @@ const QuillEditor = ({ value, onChange, placeholder, className, height = 400, re
   return (
     <div className={className || ''} style={{ height: `${height}px` }}>
       <ReactQuill
-        ref={ref}
+        ref={quillRef}
         value={editorValue}
         onChange={handleChange}
         modules={modules}
@@ -87,7 +90,7 @@ const QuillEditor = ({ value, onChange, placeholder, className, height = 400, re
       />
     </div>
   );
-};
+});
 
 QuillEditor.displayName = 'QuillEditor';
 

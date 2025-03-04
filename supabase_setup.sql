@@ -158,3 +158,13 @@ CREATE INDEX comments_article_id_idx ON public.comments (article_id);
 CREATE INDEX comments_user_id_idx ON public.comments (user_id);
 CREATE INDEX likes_article_id_idx ON public.likes (article_id);
 CREATE INDEX likes_user_id_idx ON public.likes (user_id); 
+
+
+--policy for profile page update
+
+
+CREATE POLICY "Users can update own profile" 
+ON public.users 
+FOR UPDATE 
+TO authenticated 
+USING (auth.uid() = id);

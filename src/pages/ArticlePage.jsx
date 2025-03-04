@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams } from 'react-router'
-import { FiHeart, FiMessageSquare, FiShare2, FiBookmark, FiUser, FiCalendar } from 'react-icons/fi'
+import { FiHeart, FiMessageSquare, FiShare2, FiUser, FiCalendar } from 'react-icons/fi'
 import supabase from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { toast } from 'react-hot-toast'
 import CommentSection from '../components/CommentSection'
-import useBookmarks from '../hooks/useBookmarks'
 
 // Sample article data - would be fetched from Supabase in a real app
 const ARTICLE = {
@@ -126,7 +125,6 @@ const COMMENTS = [
 export default function ArticlePage() {
   const { id } = useParams()
   const { user } = useAuth()
-  const { isBookmarked, toggleBookmark } = useBookmarks()
   const [article, setArticle] = useState(null)
   const [loading, setLoading] = useState(true)
   const [isLiked, setIsLiked] = useState(false)
@@ -183,8 +181,6 @@ export default function ArticlePage() {
         .single()
         
       setIsLiked(!!likeData)
-      
-      // TODO: Add bookmark check when bookmark functionality is implemented
     } catch (error) {
       console.error('Error checking interactions:', error.message)
     }
@@ -232,12 +228,6 @@ export default function ArticlePage() {
     }
   }
   
-  const handleBookmark = async () => {
-    // Use the toggleBookmark function from useBookmarks
-    await toggleBookmark(id)
-    // No need for toast message as it's handled inside the hook
-  }
-  
   const formatDate = (dateString) => {
     const options = { year: 'numeric', month: 'long', day: 'numeric' }
     return new Date(dateString).toLocaleDateString(undefined, options)
@@ -264,85 +254,117 @@ export default function ArticlePage() {
   }
 
   return (
-    <div className="bg-gray-50 py-10">
-      <article className="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
-        {/* Article Header */}
-        <div className="px-6 py-8 md:px-10">
-          <div className="flex items-center space-x-2 text-sm text-gray-500 mb-6">
-            <div className="flex items-center">
-              <FiCalendar className="mr-1" />
-              <span>{formatDate(article.createdAt)}</span>
+    <div className="min-h-screen bg-gray-50">
+      {/* Hero Section with Featured Image */}
+      {article.featured_image_url && (
+        <div className="relative w-full h-[60vh] bg-gray-900">
+          <img
+            src={article.featured_image_url}
+            alt={article.title}
+            className="w-full h-full object-cover opacity-80"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent" />
+        </div>
+      )}
+
+      <div className={`relative ${article.featured_image_url ? '-mt-32' : 'pt-10'}`}>
+        <article className="max-w-4xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden">
+          {/* Article Header */}
+          <div className="px-6 py-10 md:px-12">
+            <div className="flex flex-wrap gap-2 mb-6">
+              {article.tags.map(tag => (
+                <Link 
+                  key={tag} 
+                  to={`/tags/${tag}`}
+                  className="inline-block bg-orange-50 text-orange-600 text-sm px-3 py-1 rounded-full hover:bg-orange-100 transition-colors duration-200"
+                >
+                  {tag}
+                </Link>
+              ))}
             </div>
-            <span>•</span>
-            <span>{article.readingTime}</span>
+            
+            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight">
+              {article.title}
+            </h1>
+            
+            <div className="flex items-center justify-between border-b border-gray-100 pb-8">
+              <div className="flex items-center space-x-4">
+                <img 
+                  src={article.author.avatar_url || 'https://via.placeholder.com/40'} 
+                  alt={article.author.username}
+                  className="h-12 w-12 rounded-full object-cover" 
+                />
+                <div>
+                  <Link 
+                    to={`/profile/${article.author.username}`} 
+                    className="text-lg font-medium text-gray-900 hover:text-orange-600 transition-colors"
+                  >
+                    {article.author.username}
+                  </Link>
+                  <div className="flex items-center space-x-2 text-sm text-gray-500">
+                    <FiCalendar className="w-4 h-4" />
+                    <span>{formatDate(article.created_at)}</span>
+                    {article.readingTime && (
+                      <>
+                        <span>•</span>
+                        <span>{article.readingTime} min read</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
           
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            {article.title}
-          </h1>
-          
-          <div className="flex flex-wrap gap-2 mb-6">
-            {article.tags.map(tag => (
-              <Link 
-                key={tag} 
-                to={`/tags/${tag}`}
-                className="inline-block bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full hover:bg-orange-200 transition-colors duration-200"
-              >
-                {tag}
-              </Link>
-            ))}
-          </div>
-          
-          <div className="flex items-center mb-8 pb-8 border-b border-gray-100">
-            <img 
-              src={article.author.avatarUrl} 
-              alt={article.author.username}
-              className="h-12 w-12 rounded-full mr-4" 
+          {/* Article Content */}
+          <div className="px-6 md:px-12 pb-10">
+            <div 
+              className="prose prose-lg prose-orange max-w-none"
+              dangerouslySetInnerHTML={{ __html: article.content }}
             />
-            <div>
-              <Link to={`/profile/${article.author.username}`} className="text-lg font-medium text-gray-900 hover:text-orange-600">
-                {article.author.username}
-              </Link>
-              <p className="text-gray-600 text-sm">{article.author.bio}</p>
+            
+            {/* Article Actions */}
+            <div className="flex items-center justify-between mt-12 pt-6 border-t border-gray-100">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={handleLike}
+                  className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all duration-200
+                    ${isLiked 
+                      ? 'bg-orange-100 text-orange-600 hover:bg-orange-200' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                >
+                  <FiHeart className={`h-5 w-5 ${isLiked ? 'fill-current' : ''}`} />
+                  <span>{isLiked ? 'Liked' : 'Like'}</span>
+                </button>
+                
+                <button
+                  onClick={() => {/* Handle comment */}}
+                  className="flex items-center gap-2 px-6 py-3 rounded-full font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all duration-200"
+                >
+                  <FiMessageSquare className="h-5 w-5" />
+                  <span>Comment</span>
+                </button>
+                
+                <button
+                  onClick={() => {/* Handle share */}}
+                  className="flex items-center gap-2 px-6 py-3 rounded-full font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all duration-200"
+                >
+                  <FiShare2 className="h-5 w-5" />
+                  <span>Share</span>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </article>
         
-        {/* Article Content */}
-        <div 
-          className="prose prose-orange max-w-none px-6 md:px-10 pb-6"
-          dangerouslySetInnerHTML={{ __html: article.content }}
-        />
-        
-        {/* Article Actions */}
-        <div className="px-6 md:px-10 py-6 bg-gray-50 flex flex-wrap items-center gap-6 border-t border-gray-200">
-          <button 
-            onClick={handleLike}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full ${isLiked ? 'bg-pink-100 text-pink-600' : 'bg-gray-100 text-gray-600'} hover:bg-gray-200 transition-colors duration-200`}
-          >
-            <FiHeart className={`h-5 w-5 ${isLiked ? 'fill-current' : ''}`} />
-            <span>{isLiked ? article.likesCount + 1 : article.likesCount} likes</span>
-          </button>
-          
-          <button
-            onClick={handleBookmark}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full ${isBookmarked ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-600'} hover:bg-gray-200 transition-colors duration-200`}
-          >
-            <FiBookmark className={`h-5 w-5 ${isBookmarked ? 'fill-current' : ''}`} />
-            <span>{isBookmarked ? 'Saved' : 'Save'}</span>
-          </button>
-          
-          <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors duration-200 ml-auto">
-            <FiShare2 className="h-5 w-5" />
-            <span>Share</span>
-          </button>
-        </div>
-      </article>
-      
-      {/* Comments Section */}
-      <div className="max-w-4xl mx-auto mt-10 bg-white rounded-xl shadow-md overflow-hidden">
-        <div className="px-6 py-6 md:px-10">
-          <CommentSection articleId={id} />
+        {/* Comments Section */}
+        <div className="max-w-4xl mx-auto mt-8 mb-12">
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div className="px-6 md:px-12 py-8">
+              <CommentSection articleId={id} />
+            </div>
+          </div>
         </div>
       </div>
     </div>

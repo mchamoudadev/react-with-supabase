@@ -89,3 +89,35 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 Made with ❤️ using React, Vite, and Supabase# react-with-supabase
 
 npm install react-simplemde-editor easymde react-markdown
+
+## Setting Up Supabase Storage
+
+This application uses Supabase Storage for uploading and managing images. Follow these steps to set up the storage bucket and policies:
+
+1. Log in to your Supabase dashboard
+2. Navigate to the Storage section
+3. Create a new bucket named `article-images` and set it to public
+4. Navigate to the SQL Editor
+5. Run the SQL commands from `migrations/fix_storage_policies.sql` to set up the storage policies
+
+### Storage Policies
+
+The application uses the following storage policies:
+
+- Users can upload files to their own folder (based on their user ID)
+- Users can update files in their own folder
+- Users can delete files in their own folder
+- Anyone can view files in the bucket
+
+### Testing File Uploads
+
+You can test file uploads by navigating to `/upload-test` in the application. This page provides a simple interface for uploading files and viewing your uploaded images.
+
+## Troubleshooting
+
+If you encounter issues with file uploads, check the following:
+
+1. Make sure you're signed in
+2. Check that the storage bucket is set to public
+3. Verify that the storage policies are set up correctly
+4. Check the browser console for error messages

@@ -135,7 +135,8 @@ export const createArticle = async (article) => {
       tags: article.tags,
       author_id: article.authorId,
       published: article.published || false,
-      featured_image_url: article.featuredImageUrl
+      featured_image_url: article.featuredImageUrl,
+      featured_image_path: article.featuredImagePath
     })
     .select()
     .single()
@@ -154,6 +155,7 @@ export const updateArticle = async (id, updates) => {
       tags: updates.tags,
       published: updates.published,
       featured_image_url: updates.featuredImageUrl,
+      featured_image_path: updates.featuredImagePath,
       updated_at: new Date()
     })
     .eq('id', id)

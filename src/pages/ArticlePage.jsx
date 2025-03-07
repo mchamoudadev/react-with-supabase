@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useParams } from 'react-router'
-import { FiHeart, FiMessageSquare, FiShare2, FiUser, FiCalendar } from 'react-icons/fi'
+import { FiMessageSquare, FiUser, FiCalendar } from 'react-icons/fi'
 import supabase from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { toast } from 'react-hot-toast'
@@ -127,7 +127,7 @@ export default function ArticlePage() {
   const { user } = useAuth()
   const [article, setArticle] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [isLiked, setIsLiked] = useState(false)
+  const [error, setError] = useState(null)
   
   useEffect(() => {
     fetchArticle()
@@ -169,68 +169,33 @@ export default function ArticlePage() {
   }
   
   const checkUserInteractions = async () => {
-    if (!user || !id) return
+    if (!user) return
     
     try {
-      // Check if user liked this article
-      const { data: likeData } = await supabase
-        .from('likes')
-        .select('id')
-        .eq('article_id', id)
-        .eq('user_id', user.id)
-        .single()
-        
-      setIsLiked(!!likeData)
+      // No interactions to check anymore since we removed likes
+      console.log('User interactions check skipped - like feature removed')
     } catch (error) {
-      console.error('Error checking interactions:', error.message)
-    }
-  }
-
-  const handleLike = async () => {
-    if (!user) {
-      toast.error('Please sign in to like articles')
-      return
-    }
-    
-    try {
-      if (isLiked) {
-        // Unlike the article
-        const { error } = await supabase
-          .from('likes')
-          .delete()
-          .eq('article_id', id)
-          .eq('user_id', user.id)
-          
-        if (error) throw error
-        
-        setIsLiked(false)
-        toast.success('Article unliked')
-      } else {
-        // Like the article
-        const { error } = await supabase
-          .from('likes')
-          .insert({
-            article_id: id,
-            user_id: user.id
-          })
-          
-        if (error) throw error
-        
-        setIsLiked(true)
-        toast.success('Article liked')
-      }
-      
-      // Refresh the article to get updated like count
-      fetchArticle()
-    } catch (error) {
-      console.error('Error liking/unliking article:', error.message)
-      toast.error('Failed to update like status')
+      console.error('Error checking user interactions:', error)
     }
   }
   
   const formatDate = (dateString) => {
-    const options = { year: 'numeric', month: 'long', day: 'numeric' }
-    return new Date(dateString).toLocaleDateString(undefined, options)
+    if (!dateString) return 'No date available';
+    
+    try {
+      const options = { year: 'numeric', month: 'long', day: 'numeric' };
+      const date = new Date(dateString);
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return 'Invalid date';
+      }
+      
+      return date.toLocaleDateString(undefined, options);
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Date format error';
+    }
   }
   
   if (loading) {
@@ -327,32 +292,16 @@ export default function ArticlePage() {
             <div className="flex items-center justify-between mt-12 pt-6 border-t border-gray-100">
               <div className="flex items-center gap-4">
                 <button
-                  onClick={handleLike}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all duration-200
-                    ${isLiked 
-                      ? 'bg-orange-100 text-orange-600 hover:bg-orange-200' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                >
-                  <FiHeart className={`h-5 w-5 ${isLiked ? 'fill-current' : ''}`} />
-                  <span>{isLiked ? 'Liked' : 'Like'}</span>
-                </button>
-                
-                <button
                   onClick={() => {/* Handle comment */}}
-                  className="flex items-center gap-2 px-6 py-3 rounded-full font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all duration-200"
+                  className="flex items-center gap-2 px-6 py-3 rounded-full font-medium bg-orange-500 text-white hover:bg-orange-600 transition-all duration-200"
                 >
                   <FiMessageSquare className="h-5 w-5" />
                   <span>Comment</span>
                 </button>
-                
-                <button
-                  onClick={() => {/* Handle share */}}
-                  className="flex items-center gap-2 px-6 py-3 rounded-full font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all duration-200"
-                >
-                  <FiShare2 className="h-5 w-5" />
-                  <span>Share</span>
-                </button>
+              </div>
+
+              <div>
+                {/* Social sharing options could go here in the future */}
               </div>
             </div>
           </div>

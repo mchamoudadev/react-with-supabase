@@ -5,6 +5,7 @@ import QuillEditor from '../components/QuillEditor'
 import { createArticle, updateArticle, getArticleById } from '../lib/articles'
 import { uploadImage } from '../lib/storage'
 import { useAuth } from '../context/AuthContext'
+import { toast } from 'react-hot-toast'
 
 // Convert HTML content to Quill Delta format - simplified version
 const prepareContentForQuill = (html) => {
@@ -38,7 +39,6 @@ export default function ArticleEditorPage() {
   // State for image upload
   const [selectedImage, setSelectedImage] = useState(null)
   const [isUploading, setIsUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
   const [imagePath, setImagePath] = useState('')
   
   const fileInputRef = useRef(null)
@@ -50,7 +50,8 @@ export default function ArticleEditorPage() {
       const fetchArticle = async () => {
         try {
           const article = await getArticleById(id)
-          
+
+          console.log('Article:', article)
           if (!article) {
             setError('Article not found')
             return
@@ -65,7 +66,16 @@ export default function ArticleEditorPage() {
           setTitle(article.title || '')
           setContent(article.content || '')
           setSelectedTags(article.tags || [])
-          setFeaturedImageUrl(article.featured_image_url || '')
+          
+          // Handle featured image loading with explicit error handling
+          if (article.featured_image_url) {
+            console.log('Loading existing featured image:', article.featured_image_url)
+            // Simply set the URL directly without the fetch check
+            setFeaturedImageUrl(article.featured_image_url)
+          } else {
+            setFeaturedImageUrl('')
+          }
+          
           setImagePath(article.featured_image_path || '')
           setIsPublished(article.published || false)
         } catch (err) {
@@ -93,76 +103,54 @@ export default function ArticleEditorPage() {
     if (file) {
       // Check file type
       if (!file.type.startsWith('image/')) {
-        alert('Please select an image file')
+        toast.error('Please select an image file')
         return
       }
       
       // Check file size (limit to 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        alert('Image size should be less than 5MB')
+        toast.error('Image size should be less than 5MB')
         return
       }
       
       setSelectedImage(file)
-      
-      // Create a preview URL
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setFeaturedImageUrl(e.target.result)
-      }
-      reader.readAsDataURL(file)
     }
   }
   
   const handleImageUpload = async () => {
     if (!selectedImage) {
-      alert('Please select an image first')
+      toast.error('Please select an image first')
       return
     }
     
     // Check if user is logged in
     if (!user) {
-      alert('You must be signed in to upload images')
+      toast.error('You must be signed in to upload images')
       navigate('/signin')
       return
     }
     
     setIsUploading(true)
-    setUploadProgress(0)
     
     try {
-      // Simulate upload progress
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          const newProgress = prev + 10
-          if (newProgress >= 90) {
-            clearInterval(progressInterval)
-            return 90
-          }
-          return newProgress
-        })
-      }, 300)
-      
-      // Upload image to Supabase Storage with user ID
+      // Upload image to Supabase Storage
       const { path, url } = await uploadImage(selectedImage, user.id)
       
-      clearInterval(progressInterval)
-      setUploadProgress(100)
-      
-      // Update state with the image URL and path
+      // Set the image URL and path
       setFeaturedImageUrl(url)
       setImagePath(path)
       
-      // Clear the selected image
+      // Clear selected image
       setSelectedImage(null)
-      
-      // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
+      
+      // Show success message
+      toast.success('Image uploaded successfully')
     } catch (error) {
       console.error('Error uploading image:', error)
-      alert('Failed to upload image. Please try again: ' + error.message)
+      toast.error(`Failed to upload image: ${error.message || 'Unknown error'}`)
     } finally {
       setIsUploading(false)
     }
@@ -171,18 +159,19 @@ export default function ArticleEditorPage() {
   const handleSave = async (publishStatus = null) => {
     // Validate inputs
     if (!title.trim()) {
-      alert('Please enter a title for your article')
+      toast.error('Please add a title to your article')
       return
     }
     
-    if (!content.trim()) {
-      alert('Please add some content to your article')
+    // Check for content
+    if (!content || content === '<p><br></p>') {
+      toast.error('Please add some content to your article')
       return
     }
     
     // If user is not logged in, redirect to sign in
     if (!user) {
-      alert('You must be signed in to save an article')
+      toast.error('You must be signed in to save an article')
       navigate('/signin')
       return
     }
@@ -208,8 +197,10 @@ export default function ArticleEditorPage() {
         authorId: user.id,
         published,
         featuredImageUrl,
-        featuredImagePath: imagePath
+        featuredImagePath: imagePath || null
       }
+      
+      console.log('Saving article with data:', articleData)
       
       let savedArticle
       
@@ -221,11 +212,12 @@ export default function ArticleEditorPage() {
         savedArticle = await createArticle(articleData)
       }
       
-      // Navigate to the article view
+      // Show success message and navigate to the article view
+      toast.success(`Article ${isEditMode ? 'updated' : 'created'} successfully!`)
       navigate(`/article/${savedArticle.id}`)
     } catch (error) {
       console.error('Error saving article:', error)
-      alert('Failed to save your article. Please try again later.')
+      toast.error('Failed to save your article. Please try again later.')
     } finally {
       setIsSaving(false)
     }
@@ -328,69 +320,51 @@ export default function ArticleEditorPage() {
           Featured Image
         </label>
         
-        {/* Image Preview */}
-        {featuredImageUrl && (
-          <div className="mb-4 relative">
-            <img 
-              src={featuredImageUrl} 
-              alt="Featured image preview" 
-              className="w-full h-48 object-cover rounded-md"
+        {/* Simplified Image Upload UI */}
+        <div className="mb-4">
+          <div className="flex items-center space-x-2">
+            <input
+              type="file"
+              id="featured-image"
+              accept="image/*"
+              onChange={handleImageSelect}
+              ref={fileInputRef}
+              className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
             />
-            <button
-              type="button"
-              onClick={() => {
-                setFeaturedImageUrl('')
-                setSelectedImage(null)
-                if (fileInputRef.current) {
-                  fileInputRef.current.value = ''
-                }
-              }}
-              className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full hover:bg-red-700 focus:outline-none"
-            >
-              <FiX className="h-4 w-4" />
-            </button>
+            {selectedImage && (
+              <button
+                type="button"
+                onClick={handleImageUpload}
+                disabled={isUploading}
+                className="px-3 py-2 bg-orange-500 text-white rounded text-sm hover:bg-orange-600 disabled:opacity-50"
+              >
+                {isUploading ? 'Uploading' : 'Upload'}
+              </button>
+            )}
           </div>
-        )}
-        
-        {/* File Input and Upload Button */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-grow">
-            <label className="block w-full cursor-pointer bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2">
-              <FiImage className="inline mr-2" />
-              {selectedImage ? selectedImage.name : 'Select Image'}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageSelect}
-                className="hidden"
-              />
-            </label>
-          </div>
-          
-          <button
-            type="button"
-            onClick={handleImageUpload}
-            disabled={!selectedImage || isUploading}
-            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <FiUpload className="inline mr-2" />
-            {isUploading ? 'Uploading...' : 'Upload Image'}
-          </button>
         </div>
         
-        {/* Upload Progress */}
-        {isUploading && (
-          <div className="mt-2">
-            <div className="w-full bg-gray-200 rounded-full h-2.5">
-              <div 
-                className="bg-orange-600 h-2.5 rounded-full" 
-                style={{ width: `${uploadProgress}%` }}
-              ></div>
+        {/* Display currently stored image */}
+        {featuredImageUrl && (
+          <div className="mt-2 mb-4">
+            <img 
+              src={featuredImageUrl} 
+              alt="Featured image" 
+              className="w-full max-h-64 object-cover rounded-md"
+            />
+            <div className="flex justify-between items-center mt-1">
+              <span className="text-xs text-gray-500 truncate max-w-[80%]">{featuredImageUrl}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setFeaturedImageUrl('');
+                  setImagePath('');
+                }}
+                className="text-red-500 text-xs hover:text-red-700"
+              >
+                Remove
+              </button>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Uploading: {uploadProgress}%
-            </p>
           </div>
         )}
       </div>

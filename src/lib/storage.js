@@ -6,17 +6,25 @@ import { v4 as uuidv4 } from 'uuid'
  * @param {File} file - The file to upload
  * @param {string} userId - The ID of the user uploading the file
  * @param {string} bucket - The storage bucket name
- * @returns {Promise<{path: string, url: string}>} - The file path and public URL
+ * @returns {Promise<{path: string, url: string, key: string, id: string}>} - The file data including path, public URL, key and id
  */
 export const uploadImage = async (file, userId, bucket = 'article-images') => {
   try {
-    // Create a unique file path using user ID and UUID
-    const filePath = `${userId}/${uuidv4()}`
+    // Get file extension from original filename
+    const fileExt = file.name.split('.').pop().toLowerCase()
+    
+    // Create a unique file path using user ID and UUID, preserving the file extension
+    const filename = `${uuidv4()}.${fileExt}`
+    const filePath = `${userId}/${filename}`
     
     // Upload the file to Supabase Storage
     const { data, error } = await supabase.storage
       .from(bucket)
-      .upload(filePath, file)
+      .upload(filePath, file, {
+        contentType: file.type,
+        cacheControl: '3600',
+        upsert: true
+      })
     
     if (error) throw error
     

@@ -3,14 +3,33 @@ import { FiHeart, FiMessageSquare, FiClock, FiUser } from 'react-icons/fi'
 import DOMPurify from 'dompurify'
 
 export default function ArticleCard({ article }) {
-  const { id, title, content, author, tags, createdAt, likesCount, commentsCount, featured_image_url } = article
+  const { id, title, content, author, tags, createdAt, created_at, likesCount, commentsCount, featured_image_url } = article
 
-  // Format date 
-  const formattedDate = new Date(createdAt).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
+  // Format date - handle both createdAt and created_at
+  const formatDate = (dateString) => {
+    if (!dateString) return 'No date';
+    
+    try {
+      const date = new Date(dateString);
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return 'Invalid date';
+      }
+      
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Date error';
+    }
+  }
+  
+  // Use either createdAt or created_at
+  const formattedDate = formatDate(created_at || createdAt);
 
   // Function to create safe HTML
   const createSafeHTML = (htmlContent) => {

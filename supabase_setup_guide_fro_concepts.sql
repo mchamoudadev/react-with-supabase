@@ -168,3 +168,149 @@ ON public.users
 FOR UPDATE 
 TO authenticated 
 USING (auth.uid() = id);
+
+
+
+Now we need to install the dompurify package to properly sanitize HTML content:
+
+
+
+
+<think>The user is asking about the `options` object in the `formatDate` function, specifically about the options provided to `toLocaleDateString()`. Let me explain what this configuration does with examples.</think># Date Formatting Options Explained
+
+The line `const options = { year: 'numeric', month: 'long', day: 'numeric' };` defines formatting options for the `toLocaleDateString()` method. These options control how the date is displayed to the user.
+
+## Breaking Down Each Option:
+
+### `year: 'numeric'`
+This displays the year as a full number.
+- Example: `2023` instead of `'23`
+
+### `month: 'long'`
+This displays the full name of the month.
+- Example: `September` instead of `Sep` or `9`
+
+### `day: 'numeric'`
+This displays the day of the month as a number without leading zeros.
+- Example: `5` instead of `05`
+
+## Examples of Different Formatting Options:
+
+For the date: September 5, 2023
+
+```javascript
+// Current options in your code
+const options1 = { year: 'numeric', month: 'long', day: 'numeric' };
+// Result: "September 5, 2023"
+
+// Short month and 2-digit day
+const options2 = { year: 'numeric', month: 'short', day: '2-digit' };
+// Result: "Sep 05, 2023"
+
+// Numeric month and day
+const options3 = { year: 'numeric', month: 'numeric', day: 'numeric' };
+// Result: "9/5/2023" (in US locale)
+
+// 2-digit year
+const options4 = { year: '2-digit', month: 'short', day: 'numeric' };
+// Result: "Sep 5, 23"
+```
+
+## Other Possible Values:
+
+- For `year`: `'numeric'` (2023) or `'2-digit'` (23)
+- For `month`: `'numeric'` (9), `'2-digit'` (09), `'short'` (Sep), `'long'` (September), `'narrow'` (S)
+- For `day`: `'numeric'` (5) or `'2-digit'` (05)
+
+## Locale Impact:
+
+The format also changes based on the locale provided (or browser's default if none specified):
+
+```javascript
+// US English (default in your code when using undefined)
+date.toLocaleDateString('en-US', options1)
+// Result: "September 5, 2023"
+
+// British English
+date.toLocaleDateString('en-GB', options1)
+// Result: "5 September 2023"
+
+// French
+date.toLocaleDateString('fr-FR', options1)
+// Result: "5 septembre 2023"
+```
+
+This approach gives you consistent, localized date formatting across your application.
+
+
+
+(auth.uid() = author_id)
+
+
+
+
+-- Allow users to delete their own comments OR allow article authors to delete any comments on their articles
+(auth.uid() = user_id) OR 
+(auth.uid() IN (SELECT author_id FROM articles WHERE id = article_id))
+
+
+
+
+for comments policy 
+
+
+<think>The user is asking about the RLS policies for insertion and update operations for comments, not just deletion. Let me address this.</think>I understand now - you're asking about the Row-Level Security (RLS) policies for inserting and updating comments, not just for deletion. Let me provide the complete set of policies you should have for comments:
+
+### Comment RLS Policies (Complete Set)
+
+#### 1. INSERT Policy for Comments
+```sql
+-- Allow any authenticated user to create comments
+(auth.uid() IS NOT NULL)
+```
+This allows any logged-in user to create comments on any article.
+
+#### 2. UPDATE Policy for Comments
+```sql
+-- Allow users to update only their own comments
+(auth.uid() = user_id)
+```
+This restricts comment editing to only the original author of the comment.
+
+#### 3. DELETE Policy for Comments
+```sql
+-- Allow comment authors to delete their own comments OR article authors to delete any comments
+(auth.uid() = user_id) OR 
+(auth.uid() IN (SELECT author_id FROM articles WHERE id = article_id))
+```
+This allows both comment authors and article authors to delete comments.
+
+#### 4. SELECT Policy for Comments
+```sql
+-- Allow anyone to read comments
+TRUE
+```
+This makes comments publicly readable (typical for a blog).
+
+### Implementation Steps
+
+To set these up in Supabase:
+
+1. Go to your Supabase dashboard
+2. Navigate to "Table Editor" → "comments"
+3. Go to "Policies" tab
+4. Create separate policies for each operation type (INSERT, UPDATE, DELETE, SELECT)
+5. Use the conditions I provided above
+
+This creates a balanced system where:
+- Any authenticated user can leave comments
+- Users can only edit their own comments
+- Both comment authors and article authors can delete comments
+- Everyone can read all comments
+
+Does this cover the insertion and update permissions you were asking about?
+
+
+
+-- Allow anyone to read comments on published articles
+TRUE

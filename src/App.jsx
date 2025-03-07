@@ -11,6 +11,7 @@ import SignUpPage from './pages/SignUpPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import ProfilePage from './pages/ProfilePage'
+import ManageArticlesPage from './pages/ManageArticlesPage'
 import ImageUploadTest from './components/ImageUploadTest'
 import ProtectedRoute from './components/ProtectedRoute'
 import UnauthenticatedRoute from './components/UnauthenticatedRoute'
@@ -64,6 +65,11 @@ function App() {
               <Route path="/profile" element={
                 <ProtectedRoute>
                   <ProfilePage />
+                </ProtectedRoute>
+              } />
+              <Route path="/manage-articles" element={
+                <ProtectedRoute>
+                  <ManageArticlesPage />
                 </ProtectedRoute>
               } />
             </Routes>

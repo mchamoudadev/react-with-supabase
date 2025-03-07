@@ -133,22 +133,37 @@ export const getArticlesByAuthor = async (authorId, {
 
 
 export const createArticle = async (article) => {
+  console.log('Creating article with data:', {
+    ...article,
+    imageUrl: article.featuredImageUrl,
+    imagePath: article.featuredImagePath
+  });
+
+  // Ensure we have the correct property names for the database
+  const articleData = {
+    title: article.title,
+    content: article.content,
+    tags: article.tags,
+    author_id: article.authorId,
+    published: article.published || false,
+    featured_image_url: article.featuredImageUrl || null,
+    featured_image_path: article.featuredImagePath || null
+  };
+
+  console.log('Formatted article data for database:', articleData);
+
   const { data, error } = await supabase
     .from('articles')
-    .insert({
-      title: article.title,
-      content: article.content,
-      tags: article.tags,
-      author_id: article.authorId,
-      published: article.published || false,
-      featured_image_url: article.featuredImageUrl,
-      featured_image_path: article.featuredImagePath
-    })
+    .insert(articleData)
     .select()
     .single()
 
-  if (error) throw error
-  return data
+  if (error) {
+    console.error('Error creating article:', error);
+    throw error;
+  }
+  console.log('Article created successfully:', data);
+  return data;
 }
 
 

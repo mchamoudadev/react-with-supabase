@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useParams, useNavigate } from 'react-router'
-import { FiSave, FiX, FiTag, FiUpload, FiImage } from 'react-icons/fi'
+import { FiSave, FiX, FiTag, FiUpload, FiImage, FiInfo } from 'react-icons/fi'
 import QuillEditor from '../components/QuillEditor'
 import { createArticle, updateArticle, getArticleById } from '../lib/articles'
 import { uploadImage } from '../lib/storage'
@@ -104,16 +104,26 @@ export default function ArticleEditorPage() {
       // Check file type
       if (!file.type.startsWith('image/')) {
         toast.error('Please select an image file')
+        e.target.value = '' // Clear the file input
         return
       }
       
       // Check file size (limit to 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('Image size should be less than 5MB')
+      const maxSize = 5 * 1024 * 1024 // 5MB in bytes
+      if (file.size > maxSize) {
+        toast.error(`Image size (${(file.size / 1024 / 1024).toFixed(2)}MB) exceeds the 5MB limit`)
+        e.target.value = '' // Clear the file input
+        setSelectedImage(null)
         return
       }
       
       setSelectedImage(file)
+      toast.success(`Selected: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`)
+      console.log('Selected image:', {
+        name: file.name,
+        size: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+        type: file.type
+      })
     }
   }
   
@@ -131,16 +141,18 @@ export default function ArticleEditorPage() {
     }
     
     setIsUploading(true)
+    console.log('Starting image upload for:', selectedImage)
     
     try {
       // Upload image to Supabase Storage
       const { path, url } = await uploadImage(selectedImage, user.id)
+      console.log('Image upload successful:', { path, url })
       
-      // Set the image URL and path
+      // Set the image URL and path immediately
       setFeaturedImageUrl(url)
       setImagePath(path)
       
-      // Clear selected image
+      // Clear selected image and file input
       setSelectedImage(null)
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
@@ -148,9 +160,17 @@ export default function ArticleEditorPage() {
       
       // Show success message
       toast.success('Image uploaded successfully')
+      console.log('Image state after upload:', {
+        featuredImageUrl: url,
+        imagePath: path
+      })
+
+      // Return the uploaded image data
+      return { url, path }
     } catch (error) {
       console.error('Error uploading image:', error)
       toast.error(`Failed to upload image: ${error.message || 'Unknown error'}`)
+      throw error
     } finally {
       setIsUploading(false)
     }
@@ -176,19 +196,61 @@ export default function ArticleEditorPage() {
       return
     }
     
+    let uploadedImageData = null
+    
     // Check if there's a selected image that hasn't been uploaded yet
-    if (selectedImage && !isUploading) {
+    if (selectedImage) {
+      console.log('Selected image needs to be uploaded first:', selectedImage)
       const shouldUpload = confirm('You have a selected image that hasn\'t been uploaded yet. Would you like to upload it now?')
       if (shouldUpload) {
-        await handleImageUpload()
+        try {
+          uploadedImageData = await handleImageUpload()
+          console.log('Image uploaded during save:', uploadedImageData)
+          
+          // Wait a moment for state to update
+          await new Promise(resolve => setTimeout(resolve, 100))
+        } catch (error) {
+          console.error('Failed to upload image during save:', error)
+          toast.error('Failed to upload image. Please try uploading the image first.')
+          return
+        }
+      } else {
+        // If user doesn't want to upload the image, ask if they want to proceed without it
+        const shouldProceed = confirm('Do you want to proceed without uploading the image?')
+        if (!shouldProceed) {
+          return
+        }
+        // Clear the selected image since user chose not to upload
+        setSelectedImage(null)
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''
+        }
       }
     }
     
     setIsSaving(true)
+    console.log('Starting article save with state:', {
+      isEditMode,
+      featuredImageUrl,
+      imagePath,
+      selectedImage,
+      uploadedImageData
+    })
     
     try {
       // Determine if we should update the publish status
       const published = publishStatus !== null ? publishStatus : isPublished
+      
+      // Get the current image state, preferring newly uploaded image if available
+      const currentImageUrl = uploadedImageData?.url || featuredImageUrl
+      const currentImagePath = uploadedImageData?.path || imagePath
+      
+      console.log('Current image state:', {
+        featuredImageUrl: currentImageUrl,
+        imagePath: currentImagePath,
+        selectedImage,
+        uploadedImageData
+      })
       
       const articleData = {
         title,
@@ -196,8 +258,8 @@ export default function ArticleEditorPage() {
         tags: selectedTags,
         authorId: user.id,
         published,
-        featuredImageUrl,
-        featuredImagePath: imagePath || null
+        featuredImageUrl: currentImageUrl,
+        featuredImagePath: currentImagePath
       }
       
       console.log('Saving article with data:', articleData)
@@ -211,6 +273,8 @@ export default function ArticleEditorPage() {
         // Create new article
         savedArticle = await createArticle(articleData)
       }
+      
+      console.log('Article saved successfully:', savedArticle)
       
       // Show success message and navigate to the article view
       toast.success(`Article ${isEditMode ? 'updated' : 'created'} successfully!`)
@@ -318,29 +382,45 @@ export default function ArticleEditorPage() {
       <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Featured Image
+          <button
+            type="button"
+            onClick={() => toast.info('Maximum image size allowed is 5MB')}
+            className="ml-2 text-xs text-gray-500 hover:text-gray-700"
+          >
+            <FiInfo className="inline-block" />
+          </button>
         </label>
         
         {/* Simplified Image Upload UI */}
         <div className="mb-4">
-          <div className="flex items-center space-x-2">
-            <input
-              type="file"
-              id="featured-image"
-              accept="image/*"
-              onChange={handleImageSelect}
-              ref={fileInputRef}
-              className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
-            />
-            {selectedImage && (
-              <button
-                type="button"
-                onClick={handleImageUpload}
-                disabled={isUploading}
-                className="px-3 py-2 bg-orange-500 text-white rounded text-sm hover:bg-orange-600 disabled:opacity-50"
-              >
-                {isUploading ? 'Uploading' : 'Upload'}
-              </button>
-            )}
+          <div className="flex flex-col space-y-2">
+            <div className="flex items-center space-x-2">
+              <input
+                type="file"
+                id="featured-image"
+                accept="image/*"
+                onChange={handleImageSelect}
+                ref={fileInputRef}
+                className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
+              />
+              {selectedImage && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await handleImageUpload();
+                    } catch (error) {
+                      console.error('Failed to upload image:', error);
+                      toast.error('Failed to upload image. Please try again.');
+                    }
+                  }}
+                  disabled={isUploading}
+                  className="px-3 py-2 bg-orange-500 text-white rounded text-sm hover:bg-orange-600 disabled:opacity-50"
+                >
+                  {isUploading ? 'Uploading...' : 'Upload'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
         
@@ -359,6 +439,10 @@ export default function ArticleEditorPage() {
                 onClick={() => {
                   setFeaturedImageUrl('');
                   setImagePath('');
+                  setSelectedImage(null);
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                  }
                 }}
                 className="text-red-500 text-xs hover:text-red-700"
               >

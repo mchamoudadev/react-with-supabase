@@ -50,6 +50,8 @@ export default function HomePage() {
 
       if (latestError) throw latestError
 
+      console.log("latest", latest)
+
       setFeaturedArticles(featured || [])
       setLatestArticles(latest || [])
     } catch (error) {
